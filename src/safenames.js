@@ -5,12 +5,12 @@
 	A module that provides
 
 	* functional style object property definition and
-	* 'name-safe property access.
+	* name-safe property access.
 	
 	Instead of setting/getting properties directly on an object instance you declare the properties
-	and their default value on a object factory.
+	and their default value on an object builder.
 
-	The factory ensures that name typos get catched at runtime by adding for each property a function 
+	The builder ensures that name typos get catched at runtime by adding for each property a function 
 	to the object's prototype, that allows to set or get the value of the property.
 
 	## Installation
@@ -42,6 +42,16 @@
 	The new created object's prototype contains for each property `xyz` a method `$xyz`
 	that acts as both getter and setter: When called with an argument it sets the property to the new value,
 	when called without argument it returns the value of the property.
+	
+	Instead of
+	
+		instance.name = "newValue";
+		var bar = instance.bar;
+		
+	you now can write
+	
+		instance.$name("newValue");
+		var bar = instance.$bar();
 
 	The setter methods return the object, so that setters allow chained value setting:
 
@@ -49,7 +59,7 @@
 			.$name("newValue")
 			.$bar(17);
 
-	This not only provides a convenient way to set multiple values of an object. Using a function
+	Using a function
 	instead of a value assignment to a property prevents you from not catching typos during value access:
 
 	In regular Javascript you will not receive a runtime error when you have typos like
@@ -57,7 +67,7 @@
 		var theName = instance.nmae;
 		instance.abr = 52;
 
-	This is perfectly valid Javascript and will not create a runtime error directly. It just assigns an `undefined` value to the variable `theName`	and silently create a new property `bra`.
+	This code is perfectly valid Javascript and will not create a runtime error directly. It just assigns an `undefined` value to the variable `theName`	and silently creates a new property `bra`.
 	If this was not your intention, this bug will still have a runtime impact, but usually somewhere in your business logic and manifest itself	somewhere else in the code -- quite hard to catch and find.
 
 	By using the getter/setter approach provided by `safenames` those issues are gone:
@@ -71,7 +81,7 @@
 	This gives your code quite some robustness!
 
 	Of course there is no such thing than free lunch: For this robustness you have to pay by accepting [some performance
-	penalty](http://jsperf.com/property-access-vs-getter-setter) due to the additional function call overhead. But in the rare cases, where this minor penalty really matters, (keep in mind that while the relative performance difference may look scary, the absolute difference is on a modern computer
+	penalty](http://jsperf.com/property-access-vs-getter-setter) due to the additional function call overhead (while the relative performance difference may look scary, the absolute difference is on a modern computer in the range of a few nanoseconds). But in the rare cases, where this minor penalty really matters, 
 	nothing prevents you from accessing the properties directly - as the objects created are still regular Javascript objects.
 
 	### Alternative object instantiation methods
@@ -283,7 +293,7 @@ ObjectBuilder.prototype = {
 	An object builder provides various chainable methods for the declaration of the
 	object.
 	
-	#### <a id="property"></a>Method `.property(propertyName [, defaultValue [, propertyDescriptor] ] )`
+	#### <a id="property"></a>`.property(propertyName [, defaultValue [, propertyDescriptor] ] )`
 	
 	When `defaultValue` is given and contains a function then `property`-method behaves exactly like the
 	[`method`](#method)-method.
@@ -349,7 +359,7 @@ ObjectBuilder.prototype = {
 		);
 	},
 /**	
-	#### <a id="method"></a>Method `.method(propertyName, defaultValue [, propertyDescriptor] )`
+	#### <a id="method"></a>`.method(propertyName, defaultValue [, propertyDescriptor] )`
 	
 	Declares a property with the given name `methodName` and function `fn` for the **prototype of the
 	object**.
@@ -372,7 +382,7 @@ ObjectBuilder.prototype = {
 		return this.prototypeProperty( methodName, fn, mixedPropertyDescriptor( METHOD, propertyDescriptor ) );
 	},
 /**	
-	#### <a id="constant"></a>Method `.constant(propertyName, defaultValue [, propertyDescriptor] )`
+	#### <a id="constant"></a>`.constant(propertyName, defaultValue [, propertyDescriptor] )`
 	
 	Declares a property with the given name `constantName` and value `value` for the **prototype of the
 	object**. For implicit name checks also a getter/setter method will get defined.
@@ -401,7 +411,7 @@ ObjectBuilder.prototype = {
 		return this.prototypeProperty( constantName, value, propertyDescriptor );
 	},
 /**	
-	#### <a id="nested"></a>Method `.nested(propertyName [, prototype [, propertyDescriptor] ] )`
+	#### <a id="nested"></a>`.nested(propertyName [, prototype [, propertyDescriptor] ] )`
 	
 	Declares a new property `propertyName` and a getter/setter method identically to the [property](#property)-method. In addition a new object builder that will get used for the property's in instances.
 	
@@ -444,7 +454,7 @@ ObjectBuilder.prototype = {
 		return result;
 	},
 /**	
-	#### <a id="prototypeProperty"></a>Method `.prototypeProperty(propertyName [, defaultValue [, propertyDescriptor] ] )`
+	#### <a id="prototypeProperty"></a>`.prototypeProperty(propertyName [, defaultValue [, propertyDescriptor] ] )`
 	
 	Allows to directly define a property on the property of the objects.
 	
@@ -462,7 +472,7 @@ ObjectBuilder.prototype = {
 		return this;
 	},
 /**	
-	#### <a id="properties"></a>Method `.properties(properties)`
+	#### <a id="properties"></a>`.properties(properties)`
 	
 	A convenience method that all to declare all [own properties](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/getOwnPropertyNames) of the given `properties` parameter as
 	properties by calling the [`property`](#property)-method for each of them, with `defaultValue` set to its value.
@@ -477,7 +487,7 @@ ObjectBuilder.prototype = {
 		return this;
 	},
 /**	
-	#### <a id="rawProperty"></a>Method `.rawProperty(propertyName [, defaultValue [, propertyDescriptor] ] )`
+	#### <a id="rawProperty"></a>`.rawProperty(propertyName [, defaultValue [, propertyDescriptor] ] )`
 	
 	Behaves similar the [`property`](#property) method and creates a getter/setter method for the
 	given `properyName`, but doesn't analyse the type of the `defaultValue`
@@ -501,13 +511,20 @@ ObjectBuilder.prototype = {
 			,GETTER_SETTER
 		);
 	},
+/**	
+	#### <a id="done"></a>`.done()`
+	
+	Must get called to mark the end of the property declaration. When called on a nested object builder it returns
+	its parent builder. Otherwise it returns the current builder.
+	
+**/
 	done: function(){
 		return this.parent == null ? this : this.parent;
 	},
 /**	
 	### Methods for object instantiation
 	
-	#### create()
+	#### <a id="create">`.create()`
 	
 	Creates a new instance if the object declared through the builder.
 	
@@ -515,6 +532,16 @@ ObjectBuilder.prototype = {
 	create: function(){
 		return Object.create(this.proto,this.descriptors());
 	},
+/**	
+	#### <a id="constructor">`.constructor(initFunction)`
+	
+	Returns a constructor function for the object which can be used for initiating new object instances
+	through JavaScript's `new` operator.
+	
+	The optional `initFunction` parameter can be used to let the constructor call specific initialization code.
+	Inside the provided function `this` refers to the newly created object.
+	
+**/	
 	constructor: function(){
 		var descs = this.descriptors();
 		var baseConstructor = function(){
@@ -532,9 +559,22 @@ ObjectBuilder.prototype = {
 		constructor.prototype = this.proto;
 		return constructor;
 	},
+/**	
+	#### <a id="prototype">`.prototype()`
+	
+	Returns the prototype object used for object created by that builder
+	
+**/	
 	prototype: function(){
 		return this.proto;
 	},
+/**	
+	#### <a id="descriptors">`.descriptors()`
+	
+	Returns a propertyDescriptors object that [Object.defineProperties()](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineProperties) would 
+	expect with the `value` property set to the appropriate default value. As part of this does the deep-cloning of the non-scalar defaultValues.
+	
+**/	
 	descriptors: function(){
 		if( Object.keys(this.objectProperties).length == 0 ) return this.scalarProperties;
 		var objectDesc = mixedPropertyDescriptors(this.scalarProperties, this.objectProperties);
@@ -546,12 +586,31 @@ ObjectBuilder.prototype = {
 		});
 		return objectDesc;
 	},
+/**	
+	#### <a id="createsPrototypeOf">`.createsPrototypeOf()`
+	
+	Checks if the prototype used by that builder to instantiate new objects is found in the property chain of
+	the given object.
+	
+**/	
 	createsPrototypeOf: function(obj){
 		return this.proto.isPrototypeOf(obj);
 	}
 }
 
+/**	
+	### Additional methods of objects created by the builder
+**/	
 function Prototype(){}
+/**	
+	#### <a id="ddollar">`.$$()`
+	
+	A method to define an additional property (and getter/setter-method) on an already created 
+	instance (rather then on the object's prototype). 
+	
+	Otherwise it behaves identically to [`rawProperty`](#rawProperty).
+	
+**/	
 Prototype.prototype.$$ = function(propertyName,value,propertyDescriptor){
 	Object.defineProperty(
 		this
